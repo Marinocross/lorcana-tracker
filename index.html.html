@@ -1,0 +1,2645 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lorcana Enchanted 相場トラッカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #f0d080;
+    --gold-pale: #fff8e7;
+    --ink-dark: #0d0b14;
+    --ink-mid: #1e1a2e;
+    --ink-soft: #2e2845;
+    --enchant: #7b5ea7;
+    --enchant-glow: #b08ae0;
+    --sapphire: #3a5fa0;
+    --emerald: #2d7a4f;
+    --ruby: #a03a3a;
+    --amber: #c47820;
+    --amethyst: #6a3fa0;
+    --steel: #4a7a8a;
+    --text-main: #f0e8d8;
+    --text-muted: #a09070;
+    --border: rgba(201,168,76,0.25);
+    --card-bg: rgba(30,26,46,0.85);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--ink-dark);
+    color: var(--text-main);
+    font-family: 'Crimson Pro', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ── 背景装飾 ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(123,94,167,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(58,95,160,0.1) 0%, transparent 60%),
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 40px,
+        rgba(201,168,76,0.015) 40px,
+        rgba(201,168,76,0.015) 41px
+      );
+    pointer-events: none; z-index: 0;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; width: 100%; box-sizing: border-box; overflow-x: hidden; }
+
+  /* ── ヘッダー ── */
+  header {
+    text-align: center;
+    padding: 48px 20px 32px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  header::after {
+    content: '✦ ✦ ✦';
+    display: block;
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 12px;
+    margin-top: 16px;
+    opacity: 0.6;
+  }
+
+  .logo-mark {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(22px, 4vw, 38px);
+    background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 3px;
+    line-height: 1.2;
+    text-shadow: none;
+    filter: drop-shadow(0 0 20px rgba(201,168,76,0.3));
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  /* ── コントロールバー ── */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-wrap {
+    flex: 1;
+    min-width: 220px;
+    position: relative;
+  }
+
+  .search-wrap::before {
+    content: '⚜';
+    position: absolute;
+    left: 14px; top: 14px;
+    color: var(--gold);
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .search-btn {
+    position: absolute;
+    right: 8px; top: 50%;
+    transform: translateY(-50%);
+    background: linear-gradient(135deg, #8b6914, var(--gold) 50%, #8b6914);
+    color: var(--ink-dark);
+    border: none;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: filter 0.15s;
+    z-index: 2;
+    white-space: nowrap;
+  }
+  .search-btn:hover { filter: brightness(1.2); }
+
+  /* 画像付きドロップダウン */
+  .search-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0; right: 0;
+    background: var(--ink-mid);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    z-index: 200;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    max-height: 420px;
+    overflow-y: auto;
+    display: none;
+    animation: fadeIn 0.15s ease;
+  }
+  .search-dropdown.open { display: block; }
+
+  .search-dropdown::-webkit-scrollbar { width: 4px; }
+  .search-dropdown::-webkit-scrollbar-track { background: transparent; }
+  .search-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sdrop-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(201,168,76,0.08);
+    transition: background 0.12s;
+  }
+  .sdrop-item:last-child { border-bottom: none; }
+  .sdrop-item:hover, .sdrop-item.active { background: rgba(201,168,76,0.07); }
+
+  .sdrop-img-wrap {
+    width: 52px; height: 72px;
+    flex-shrink: 0;
+    border-radius: 5px;
+    overflow: hidden;
+    background: var(--ink-soft);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+
+  .sdrop-img-wrap img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .sdrop-img-placeholder {
+    width: 100%; height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--gold);
+    opacity: 0.3;
+  }
+
+  .sdrop-info { flex: 1; min-width: 0; }
+
+  .sdrop-name {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 12px;
+    color: var(--gold-light);
+    line-height: 1.3;
+    margin-bottom: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sdrop-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sdrop-price {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 14px;
+    color: var(--gold);
+  }
+
+  .sdrop-set {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .sdrop-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  /* ── ギャラリーモード切り替え ── */
+
+
+  input[type="text"], select {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    font-family: 'Crimson Pro', serif;
+    font-size: 15px;
+    padding: 10px 80px 10px 38px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select { padding: 10px 14px; }
+
+  select { padding-left: 14px; cursor: pointer; }
+
+  input[type="text"]:focus, select:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
+  }
+
+  select option { background: var(--ink-mid); }
+
+  .btn-search {
+    background: linear-gradient(135deg, #8b6914, var(--gold) 50%, #8b6914);
+    color: var(--ink-dark);
+    border: none;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 11px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: filter 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn-search:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .btn-search:active { transform: translateY(0); }
+  .btn-search:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .sort-wrap { display: flex; gap: 8px; align-items: center; }
+  .sort-wrap label { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+
+  /* ── ギャラリーモード切り替え ── */
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .view-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background 0.15s, color 0.15s;
+    border-right: 1px solid var(--border);
+  }
+  .view-btn:last-child { border-right: none; }
+  .view-btn:hover { background: rgba(201,168,76,0.06); color: var(--text-main); }
+  .view-btn.active { background: rgba(201,168,76,0.1); color: var(--gold); }
+
+  /* ── 価格幅 ── */
+  .price-range { font-size: 12px; color: var(--text-muted); }
+
+  /* ── チャート ── */
+  .chart-wrap { margin-top: 14px; height: 70px; display: none; }
+  .chart-wrap.visible { display: block; }
+  .gallery-mode .chart-wrap { display: none !important; }
+
+  /* ── 検索設定パネル ── */
+  .settings-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Crimson Pro', serif;
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .settings-toggle:hover { border-color: var(--gold); color: var(--gold); }
+  .settings-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+  .settings-toggle.open .arrow { transform: rotate(180deg); }
+  .settings-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 4px;
+    display: none;
+    animation: fadeIn 0.2s ease;
+  }
+  .settings-panel.open { display: block; }
+  .settings-panel h3 { font-family: 'Cinzel Decorative', serif; font-size: 12px; color: var(--gold); letter-spacing: 2px; margin-bottom: 16px; }
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .settings-grid { grid-template-columns: 1fr; } }
+  .settings-section label { display: block; font-size: 12px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  .site-list { display: flex; flex-direction: column; gap: 6px; }
+  .site-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; transition: border-color 0.15s, background 0.15s; user-select: none; }
+  .site-item:hover { border-color: rgba(201,168,76,0.4); background: rgba(201,168,76,0.05); }
+  .site-item input[type="checkbox"] { accent-color: var(--gold); width: 14px; height: 14px; cursor: pointer; }
+  .site-item span { font-size: 14px; flex: 1; }
+  .site-item .site-url { font-size: 11px; color: var(--text-muted); }
+  .custom-site-add { display: flex; gap: 8px; margin-top: 8px; }
+  .custom-site-add input { flex: 1; padding: 7px 12px; font-size: 13px; }
+  .keyword-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .kw-tag { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: rgba(123,94,167,0.2); border: 1px solid rgba(176,138,224,0.3); border-radius: 20px; font-size: 12px; color: var(--enchant-glow); }
+  .kw-tag button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 0; line-height: 1; transition: color 0.15s; }
+  .kw-tag button:hover { color: #e07070; }
+  .kw-add { display: flex; gap: 8px; }
+  .kw-add input { font-size: 13px; padding: 7px 12px; }
+  .settings-footer { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-muted); }
+  .settings-footer .preview { flex: 1; font-style: italic; line-height: 1.5; }
+
+  /* ── ステータスバー ── */
+  .status-bar {
+    padding: 10px 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(201,168,76,0.2);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .spinner.active { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── グリッド（3列固定・ギャラリーデフォルト） ── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    padding: 24px 0 48px;
+    align-items: start;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ── カード画像wrap（ギャラリー時のみ表示） ── */
+  .card-img-wrap {
+    display: none;
+    width: 100%;
+    aspect-ratio: 2/3;
+    background: var(--ink-soft);
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .card-img-wrap img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+  }
+
+  .card-item:hover .card-img-wrap img { transform: scale(1.04); }
+
+  .card-img-placeholder {
+    width: 100%; height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: var(--gold);
+    opacity: 0.15;
+    background: linear-gradient(135deg, var(--ink-soft), var(--ink-mid));
+  }
+
+  /* ── card-body（共通） ── */
+  .card-body { padding: 0; position: relative; }
+
+  /* ── ギャラリーモード ── */
+  .cards-grid.gallery-mode {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    align-items: start;
+  }
+
+  .cards-grid.gallery-mode .card-item {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+  }
+
+  .gallery-mode .card-img-wrap { display: block; }
+
+  .gallery-mode .card-body {
+    padding: 10px 12px 12px;
+    position: relative;
+  }
+
+  .gallery-mode .card-set-tag { font-size: 10px; margin-bottom: 4px; }
+  .gallery-mode .card-name    { font-size: 12px; margin-bottom: 2px; }
+  .gallery-mode .card-subtitle { font-size: 11px; margin-bottom: 8px; display: block !important; }
+  .gallery-mode .card-meta    { margin-top: 6px; }
+  .gallery-mode .price-row    { margin-bottom: 4px; }
+  .gallery-mode .price-value  { font-size: 15px; }
+
+  /* ── 価格比較テーブル ── */
+  .price-compare {
+    display: grid;
+    grid-template-columns: 70px 1fr 1fr;
+    gap: 4px 8px;
+    margin: 10px 0;
+    align-items: center;
+  }
+  .price-compare .pc-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .price-compare .pc-site {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: center;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .price-compare .pc-val {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 14px;
+    color: var(--gold);
+    text-align: center;
+  }
+  .price-compare .pc-val.cheaper { color: #5dc98a; }
+  .price-compare .pc-val.pricier { color: var(--text-muted); }
+  .price-compare .pc-val.soldout { color: var(--text-muted); font-family: 'Crimson Pro', serif; font-size: 12px; font-style: italic; }
+  .price-compare .pc-diff {
+    font-size: 10px;
+    text-align: center;
+  }
+  .price-compare .pc-diff.cheaper { color: #5dc98a; }
+  .price-compare .pc-diff.pricier { color: #e07070; }
+
+  /* ── 購入リンクボタン ── */
+  .pc-link-btn {
+    display: block;
+    text-align: center;
+    font-size: 11px;
+    padding: 3px 0;
+    border-radius: 4px;
+    text-decoration: none;
+    background: rgba(201,168,76,0.15);
+    color: var(--gold);
+    border: 1px solid rgba(201,168,76,0.3);
+    transition: background 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .pc-link-btn:hover { background: rgba(201,168,76,0.3); }
+  .pc-link-btn.sold {
+    background: rgba(160,58,58,0.1);
+    color: var(--text-muted);
+    border-color: rgba(160,58,58,0.2);
+  }
+  .pc-link-btn.sold:hover { background: rgba(160,58,58,0.2); }
+  .pc-link-none { display:block; text-align:center; font-size:11px; color:var(--text-muted); }
+
+  /* ── 売り切れバッジ ── */
+  .sold-out-badge {
+    position: absolute;
+    top: 10px; left: 10px;
+    background: rgba(160,58,58,0.85);
+    color: #f0e8d8;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    z-index: 3;
+    border: 1px solid rgba(240,128,128,0.4);
+  }
+  .card-item.sold-out { opacity: 0.65; }
+  .card-item.sold-out .price-value { color: var(--text-muted); }
+
+  /* ── カードアイテム ── */
+  .card-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeIn 0.4s ease both;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    height: auto;
+  }
+
+  .card-item:hover {
+    border-color: rgba(201,168,76,0.5);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(201,168,76,0.08);
+  }
+
+  .card-item::before {
+    content: '✦';
+    position: absolute;
+    top: 12px; right: 14px;
+    color: var(--gold);
+    font-size: 10px;
+    opacity: 0.4;
+  }
+
+  /* インク色バー */
+  .ink-bar {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 10px 0 0 10px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-set-tag {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .card-name {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--gold-light);
+    line-height: 1.35;
+    margin-bottom: 4px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  .card-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 14px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+
+  .price-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    width: 60px;
+  }
+
+  .price-value {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 18px;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+
+  .trend-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: auto;
+  }
+  .trend-up   { background: rgba(45,122,79,0.2);  color: #5dc98a; border: 1px solid rgba(45,122,79,0.4); }
+  .trend-down { background: rgba(160,58,58,0.2);  color: #e07070; border: 1px solid rgba(160,58,58,0.4); }
+  .trend-flat { background: rgba(201,168,76,0.1); color: var(--gold); border: 1px solid rgba(201,168,76,0.2); }
+
+  .card-meta {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: 0.5px;
+  }
+
+  .chip-ink-sapphire  { color: #7aabf0; border-color: rgba(122,171,240,0.3); background: rgba(58,95,160,0.15); }
+  .chip-ink-emerald   { color: #7adba0; border-color: rgba(122,219,160,0.3); background: rgba(45,122,79,0.15); }
+  .chip-ink-ruby      { color: #f08080; border-color: rgba(240,128,128,0.3); background: rgba(160,58,58,0.15); }
+  .chip-ink-amber     { color: #f0c060; border-color: rgba(240,192,96,0.3); background: rgba(196,120,32,0.15); }
+  .chip-ink-amethyst  { color: #c090f0; border-color: rgba(192,144,240,0.3); background: rgba(106,63,160,0.15); }
+  .chip-ink-steel     { color: #90d0e0; border-color: rgba(144,208,224,0.3); background: rgba(74,122,138,0.15); }
+  .chip-rarity        { color: var(--enchant-glow); border-color: rgba(176,138,224,0.3); background: rgba(123,94,167,0.15); }
+
+
+  /* ── 検索ハイライト ── */
+  .hl {
+    background: rgba(201,168,76,0.35);
+    color: var(--gold-light);
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+
+  /* ── 空状態 ── */
+  .empty-state {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-muted);
+  }
+  .empty-state .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.3;
+  }
+  .empty-state p { font-size: 15px; line-height: 1.8; }
+
+  /* ── フッター ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+  }
+
+  /* ── モーダル ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--ink-mid);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    max-width: 560px;
+    width: 100%;
+    padding: 28px;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 18px;
+    background: none; border: none;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .modal-close:hover { color: var(--gold); }
+
+  .modal-name {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 16px;
+    color: var(--gold-light);
+    margin-bottom: 6px;
+  }
+
+  .modal-chart { height: 160px; margin: 20px 0; }
+
+  .modal-prices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .modal-price-box {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .modal-price-box .label { font-size: 11px; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 4px; }
+  .modal-price-box .val { font-family: 'Cinzel Decorative', serif; font-size: 20px; color: var(--gold); }
+
+  .source-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 16px;
+    font-style: italic;
+    line-height: 1.7;
+  }
+
+
+
+
+
+  @media (max-width: 700px) {
+    }
+
+
+
+
+  .btn-add {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--gold);
+    font-size: 18px;
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .btn-add:hover { background: rgba(201,168,76,0.1); }
+
+
+
+
+
+  /* ── 更新モーダル ── */
+  .update-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.82);
+    backdrop-filter: blur(5px);
+    z-index: 300;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .update-overlay.open { display: flex; }
+  .update-box {
+    background: var(--ink-mid);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+    max-width: 560px;
+    width: 100%;
+    position: relative;
+  }
+  .update-box h2 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 15px;
+    color: var(--gold-light);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  .update-box p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    margin-bottom: 16px;
+  }
+  .update-box textarea {
+    width: 100%;
+    height: 160px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    font-family: monospace;
+    font-size: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+  }
+  .update-box textarea:focus { border-color: var(--gold); }
+  .update-box textarea::placeholder { color: var(--text-muted); }
+  .update-actions { display: flex; gap: 10px; }
+  .btn-apply {
+    flex: 1;
+    background: linear-gradient(135deg, #8b6914, var(--gold) 50%, #8b6914);
+    color: var(--ink-dark);
+    border: none;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: filter 0.2s;
+  }
+  .btn-apply:hover { filter: brightness(1.15); }
+  .btn-ask-claude {
+    flex: 1;
+    background: rgba(123,94,167,0.2);
+    color: var(--enchant-glow);
+    border: 1px solid rgba(176,138,224,0.4);
+    font-family: 'Crimson Pro', serif;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-ask-claude:hover { background: rgba(123,94,167,0.35); }
+  .btn-cancel-update {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Crimson Pro', serif;
+    font-size: 13px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .btn-cancel-update:hover { border-color: var(--gold); color: var(--text-main); }
+  .update-step {
+    background: rgba(201,168,76,0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    margin-bottom: 16px;
+  }
+  .update-step b { color: var(--gold); }
+  .last-updated {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-left: 8px;
+  }
+
+  /* ── 価格変動バナー ── */
+  .movement-banner {
+    display: none;
+    margin: 18px 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    animation: fadeIn 0.4s ease;
+  }
+  .movement-banner.visible { display: block; }
+
+  .movement-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(201,168,76,0.06);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-family: 'Cinzel Decorative', serif;
+  }
+
+  .movement-header .pulse {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 6px var(--gold);
+    animation: pulse 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .movement-scroll-wrap {
+    overflow: hidden;
+    position: relative;
+  }
+  /* フェードエッジ */
+  .movement-scroll-wrap::before,
+  .movement-scroll-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 48px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .movement-scroll-wrap::before {
+    left: 0;
+    background: linear-gradient(to right, var(--ink-mid), transparent);
+  }
+  .movement-scroll-wrap::after {
+    right: 0;
+    background: linear-gradient(to left, var(--ink-mid), transparent);
+  }
+
+  .movement-track {
+    display: flex;
+    gap: 0;
+    animation: scrollTicker linear infinite;
+    white-space: nowrap;
+    width: max-content;
+  }
+  @keyframes scrollTicker {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .movement-track:hover { animation-play-state: paused; }
+
+  .movement-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 28px 11px 20px;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .movement-item:hover { background: rgba(201,168,76,0.06); }
+
+  .mv-name {
+    font-size: 13px;
+    color: var(--text-main);
+    font-family: 'Crimson Pro', serif;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mv-arrow { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+  .mv-from { font-size: 13px; color: var(--text-muted); }
+  .mv-to-up   { font-family: 'Cinzel Decorative', serif; font-size: 14px; color: #5dc98a; }
+  .mv-to-down { font-family: 'Cinzel Decorative', serif; font-size: 14px; color: #e07070; }
+
+  .mv-pct {
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 20px;
+    flex-shrink: 0;
+  }
+  .mv-pct-up   { background: rgba(45,122,79,0.2);  color: #5dc98a; border: 1px solid rgba(45,122,79,0.35); }
+  .mv-pct-down { background: rgba(160,58,58,0.2);  color: #e07070; border: 1px solid rgba(160,58,58,0.35); }
+
+  /* ── APIキーモーダル ── */
+  .dot-ok  { background: #5dc98a; box-shadow: 0 0 6px #5dc98a; }
+  .dot-ng  { background: #e07070; box-shadow: 0 0 6px #e07070; }
+
+  /* ── Gist設定 ── */
+  .gist-setup {
+    background: rgba(201,168,76,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  .gist-setup-title {
+    color: var(--gold);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .gist-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .gist-row:last-child { margin-bottom: 0; }
+  .gist-row label {
+    font-size: 11px;
+    color: var(--text-muted);
+    width: 80px;
+    flex-shrink: 0;
+  }
+  .gist-row input {
+    flex: 1;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+  }
+  .gist-status {
+    font-size: 11px;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    display: none;
+  }
+  .gist-status.ok  { display:block; background:rgba(45,122,79,0.15); color:#5dc98a; border:1px solid rgba(45,122,79,0.3); }
+  .gist-status.err { display:block; background:rgba(160,58,58,0.15); color:#e07070; border:1px solid rgba(160,58,58,0.3); }
+  .gist-status.loading { display:block; background:rgba(201,168,76,0.08); color:var(--gold); border:1px solid var(--border); }
+  .btn-gist-save {
+    background: none;
+    border: 1px solid rgba(201,168,76,0.4);
+    color: var(--gold);
+    font-family: 'Crimson Pro', serif;
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-gist-save:hover { background: rgba(201,168,76,0.1); }
+
+  /* ── カード管理モーダル ── */
+  .cm-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.82);
+    backdrop-filter: blur(5px);
+    z-index: 300;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .cm-overlay.open { display: flex; }
+  .cm-box {
+    background: var(--ink-mid);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    max-width: 600px;
+    width: 100%;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .cm-box h2 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 14px;
+    color: var(--gold-light);
+    margin-bottom: 6px;
+    letter-spacing: 2px;
+  }
+  .cm-box > p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    line-height: 1.7;
+  }
+  .cm-add-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .cm-add-row input { flex: 1; font-size: 14px; }
+  .cm-card-list {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 14px;
+  }
+  .cm-card-list::-webkit-scrollbar { width: 4px; }
+  .cm-card-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .cm-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(201,168,76,0.06);
+    transition: background 0.12s;
+  }
+  .cm-item:last-child { border-bottom: none; }
+  .cm-item:hover { background: rgba(201,168,76,0.04); }
+  .cm-item-img {
+    width: 36px; height: 50px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--ink-soft);
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .cm-item-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cm-item-img .placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--gold); opacity: 0.3; }
+  .cm-item-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 18px; opacity: 0.4; flex-direction: column; gap: 2px; }
+  .cm-item-img:hover { border-color: rgba(201,168,76,0.6); }
+  .cm-item-img:hover::after { content: '変更'; position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: var(--gold); font-size: 9px; text-align: center; padding: 2px 0; letter-spacing: 1px; }
+  .cm-item-img { position: relative; }
+  .cm-item-info { flex: 1; min-width: 0; }
+  .cm-item-name { font-family: 'Cinzel Decorative', serif; font-size: 11px; color: var(--gold-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cm-item-sub  { font-size: 11px; color: var(--text-muted); font-style: italic; }
+  .cm-item-price { font-size: 12px; color: var(--gold); font-family: 'Cinzel Decorative', serif; white-space: nowrap; }
+  .cm-item-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 4px; transition: color 0.15s; flex-shrink: 0; }
+  .cm-item-del:hover { color: #e07070; }
+  .cm-img-fetch-btn {
+    width: 100%;
+    background: rgba(123,94,167,0.2);
+    color: var(--enchant-glow);
+    border: 1px solid rgba(176,138,224,0.4);
+    font-family: 'Crimson Pro', serif;
+    font-size: 14px;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 8px;
+  }
+  .cm-img-fetch-btn:hover { background: rgba(123,94,167,0.35); }
+  .cm-img-fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .cm-progress {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    display: none;
+    line-height: 1.8;
+    max-height: 100px;
+    overflow-y: auto;
+  }
+  .cm-progress.active { display: block; }
+
+  /* ── レスポンシブ ── */
+  @media (max-width: 600px) {
+    .controls { flex-direction: column; }
+    .sort-wrap { width: 100%; }
+    .sort-wrap select { flex: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo-mark">✦ Enchanted Price Tracker ✦</div>
+    <div class="subtitle">Disney Lorcana — エンチャンテッド相場</div>
+  </header>
+
+  <div class="controls">
+    <div class="search-wrap" id="searchWrap">
+      <input type="text" id="searchInput" placeholder="カード名で検索…" autocomplete="off" />
+      <button class="search-btn" onclick="doSearch()">検索</button>
+      <div class="search-dropdown" id="searchDropdown"></div>
+    </div>
+    <div class="view-toggle">
+      <button class="view-btn active" id="viewList" onclick="setView('list')" title="リスト表示">☰</button>
+      <button class="view-btn" id="viewGallery" onclick="setView('gallery')" title="ギャラリー表示">⊞</button>
+    </div>
+    <div class="sort-wrap">
+      <label>セット</label>
+      <select id="setFilter">
+        <option value="all">すべて</option>
+        <option value="TFC">物語のはじまり</option>
+        <option value="ROF">フラッドボーンの渾沌</option>
+        <option value="ITI">インクランド探訪</option>
+        <option value="URR">アースラの帰還</option>
+        <option value="SSK">星々の輝き</option>
+        <option value="AZU">大いなるアズライト</option>
+        <option value="FAB">物語のおもいでvol.1</option>
+        <option value="AIS">アーケイジアと魔法の島</option>
+        <option value="WIW">物語のおもいでvol.2</option>
+        <option value="JAF">ジャファーの王権</option>
+      </select>
+    </div>
+    <div class="sort-wrap">
+      <label>並び替え</label>
+      <select id="sortBy">
+        <option value="price_desc">価格 高い順</option>
+        <option value="price_asc">価格 低い順</option>
+        <option value="name_asc">名前順</option>
+        <option value="set">セット順</option>
+      </select>
+    </div>
+    <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">⚙ 検索設定 <span class="arrow">▾</span></button>
+    <button class="btn-search" id="updateBtn" onclick="openUpdateModal()">↻ 相場を更新</button>
+    <button class="btn-search" style="background:linear-gradient(135deg,#4a2a80,#7b5ea7 50%,#4a2a80)" onclick="openCardManager()">⊕ カード管理</button>
+  </div>
+
+  <!-- 検索設定パネル -->
+  <div class="settings-panel" id="settingsPanel">
+    <h3>✦ 検索設定</h3>
+    <div class="settings-grid">
+      <div class="settings-section">
+        <label>検索対象サイト</label>
+        <div class="site-list" id="siteList">
+          <label class="site-item"><input type="checkbox" value="ロアマスター" checked><span>ロアマスター</span><span class="site-url">loremaster.ocnk.net</span></label>
+          <label class="site-item"><input type="checkbox" value="ロルハッピー" checked><span>ロルハッピー</span><span class="site-url">lorhappy.com</span></label>
+          <label class="site-item"><input type="checkbox" value="カービット" checked><span>カービット</span><span class="site-url">carbbit.ocnk.net</span></label>
+        </div>
+        <div class="custom-site-add">
+          <input type="text" id="customSiteInput" placeholder="サイト名を追加…" />
+          <button class="btn-add" onclick="addCustomSite()">＋</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <label>追加キーワード</label>
+        <div class="keyword-list" id="keywordList"></div>
+        <div class="kw-add">
+          <input type="text" id="kwInput" placeholder="キーワード (例: PSA10)" />
+          <button class="btn-add" onclick="addKeyword()">＋</button>
+        </div>
+        <div style="margin-top:16px">
+          <label>除外キーワード</label>
+          <div class="keyword-list" id="excludeList"></div>
+          <div class="kw-add">
+            <input type="text" id="exInput" placeholder="除外ワード (例: 傷あり)" />
+            <button class="btn-add" onclick="addExclude()">＋</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="settings-footer"><span class="preview" id="promptPreview"></span></div>
+  </div>
+
+  <!-- 価格変動バナー -->
+  <div class="movement-banner" id="movementBanner">
+    <div class="movement-header">
+      <span class="pulse"></span>
+      価格変動アラート
+    </div>
+    <div class="movement-scroll-wrap">
+      <div class="movement-track" id="movementTrack"></div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="spinner" id="spinner"></div>
+    <span id="statusText">✦ ロアマスター販売価格（loremaster.ocnk.net / 2026/3更新）— 「↻ 相場を更新」で最新データに更新できます</span>
+  </div>
+
+  <div class="cards-grid gallery-mode" id="cardsGrid"></div>
+</div>
+
+<footer>
+  <div class="container">
+    Powered by Claude AI Web Search &nbsp;✦&nbsp; Disney Lorcana® は Walt Disney Company の商標です
+  </div>
+</footer>
+
+<!-- カード管理モーダル -->
+<div class="cm-overlay" id="cmOverlay">
+  <div class="cm-box">
+    <button class="modal-close" onclick="document.getElementById('cmOverlay').classList.remove('open')">✕</button>
+    <h2>✦ カード管理</h2>
+    <p>カード名と画像をリンクして管理できます。CSVで保存・読み込みも可能です。</p>
+
+    <!-- カード追加 -->
+    <div class="cm-add-row">
+      <input type="text" id="cmNameInput" placeholder="カード名（例: エルサ 冬の精霊）" />
+      <button class="btn-add" onclick="cmAddCard()" title="追加">＋</button>
+    </div>
+
+    <!-- カードリスト -->
+    <div class="cm-card-list" id="cmCardList"></div>
+
+    <div class="cm-progress" id="cmProgress"></div>
+
+    <!-- CSV操作 -->
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="cm-img-fetch-btn" style="flex:1;margin-bottom:0" onclick="cmExportCSV()">⬇ CSVで保存</button>
+      <button class="cm-img-fetch-btn" style="flex:1;margin-bottom:0" onclick="document.getElementById('cmCsvInput').click()">⬆ CSVを読み込む</button>
+      <input type="file" id="cmCsvInput" accept=".csv" style="display:none" onchange="cmImportCSV(event)">
+    </div>
+
+    <!-- CSV形式の説明 -->
+    <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;font-size:11px;color:var(--text-muted);line-height:1.8">
+      <b style="color:var(--gold)">CSV形式：</b> カード名,サブタイトル,セット名,カード画像<br>
+      例: <code style="color:var(--enchant-glow)">エルサ,冬の精霊,TFC,エルサ冬の精霊.jpg</code><br>
+      セット名: TFC/ROF/ITI/URR/SSK/AZU/FAB/AIS/WIW/JAF
+    </div>
+
+    <button class="btn-cancel-update" style="width:100%" onclick="document.getElementById('cmOverlay').classList.remove('open')">閉じる</button>
+  </div>
+</div>
+
+<!-- 相場更新モーダル -->
+<div class="update-overlay" id="updateOverlay">
+  <div class="update-box">
+    <button class="modal-close" onclick="document.getElementById('updateOverlay').classList.remove('open')">✕</button>
+    <h2>✦ 相場データを更新</h2>
+    <div class="gist-setup">
+      <div class="gist-setup-title">✦ クラウド同期（Google Apps Script）</div>
+      <div class="gist-row" style="justify-content:flex-end">
+        <button class="btn-gist-save" onclick="gistLoad()">↓ 最新データを読み込む</button>
+      </div>
+      <div class="gist-status" id="gistStatus"></div>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:10px;line-height:1.7">
+        Google Apps Scriptが自動でスクレイピングしたデータを読み込みます。<br>
+        GASで <b>scrapeAll</b> を実行してからボタンを押してください。
+      </p>
+    </div>
+    <div class="update-step">
+      <b>① 「Claudeに質問する」</b>を押す → 登録済みの全カード名を含んだプロンプトが自動入力された状態でclaude.aiが開く<br>
+      <b>② ClaudeがロアマスターとメルカリをWeb検索</b>して価格をJSON形式で返答<br>
+      <b>③ 返ってきたJSONをここに貼り付けて「反映する」</b>を押すだけ
+    </div>
+    <textarea id="jsonPasteArea" placeholder='Claudeから返ってきたJSONをここに貼り付けてください&#10;&#10;例: [{"name":"Elsa","subtitle":"Spirit of Winter",...}]'></textarea>
+    <div class="update-actions">
+      <button class="btn-ask-claude" onclick="askClaude()">✦ Claudeに質問する</button>
+      <button class="btn-apply" onclick="applyPastedData()">反映する</button>
+      <button class="btn-cancel-update" onclick="document.getElementById('updateOverlay').classList.remove('open')">閉じる</button>
+    </div>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:12px;line-height:1.6">※ APIキー不要。このチャット画面でClaudeに最新相場を調べてもらい、返ってきたデータを貼り付けるだけで更新できます。</p>
+  </div>
+</div>
+
+<!-- 詳細モーダル -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent">
+    <button class="modal-close" onclick="document.getElementById('modalOverlay').classList.remove('open')">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+// 状態管理
+// ──────────────────────────────────────────────
+let allCards = [];
+let chartInstances = {};
+
+const INK_COLORS = {
+  'Amber': 'ink-amber',
+  'Amethyst': 'ink-amethyst',
+  'Emerald': 'ink-emerald',
+  'Ruby': 'ink-ruby',
+  'Sapphire': 'ink-sapphire',
+  'Steel': 'ink-steel',
+};
+
+const INK_BAR_COLORS = {
+  'Amber': '#c47820',
+  'Amethyst': '#6a3fa0',
+  'Emerald': '#2d7a4f',
+  'Ruby': '#a03a3a',
+  'Sapphire': '#3a5fa0',
+  'Steel': '#4a7a8a',
+};
+
+const SET_NAMES = {
+  'TFC': '物語のはじまり',
+  'ROF': 'フラッドボーンの渾沌',
+  'ITI': 'インクランド探訪',
+  'URR': 'アースラの帰還',
+  'SSK': '星々の輝き',
+  'AZU': '大いなるアズライト',
+  'FAB': '物語のおもいでvol.1',
+  'AIS': 'アーケイジアと魔法の島',
+  'WIW': '物語のおもいでvol.2',
+  'JAF': 'ジャファーの王権',
+};
+
+// ──────────────────────────────────────────────
+// 検索設定管理
+// ──────────────────────────────────────────────
+let keywords = [];
+let excludes = [];
+
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  const btn = document.getElementById('settingsToggle');
+  panel.classList.toggle('open');
+  btn.classList.toggle('open');
+  updatePreview();
+}
+
+function getSelectedSites() {
+  return [...document.querySelectorAll('#siteList input[type=checkbox]:checked')]
+    .map(el => el.value);
+}
+
+function addCustomSite() {
+  const input = document.getElementById('customSiteInput');
+  const val = input.value.trim();
+  if (!val) return;
+  const list = document.getElementById('siteList');
+  const label = document.createElement('label');
+  label.className = 'site-item';
+  label.innerHTML = `<input type="checkbox" value="${escH(val)}" checked><span>${escH(val)}</span><button onclick="this.closest('label').remove();updatePreview()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;margin-left:auto">✕</button>`;
+  label.querySelector('input').addEventListener('change', updatePreview);
+  list.appendChild(label);
+  input.value = '';
+  updatePreview();
+}
+
+function addKeyword() {
+  const input = document.getElementById('kwInput');
+  const val = input.value.trim();
+  if (!val || keywords.includes(val)) return;
+  keywords.push(val);
+  renderTags('keywordList', keywords, keywords);
+  input.value = '';
+  updatePreview();
+}
+
+function addExclude() {
+  const input = document.getElementById('exInput');
+  const val = input.value.trim();
+  if (!val || excludes.includes(val)) return;
+  excludes.push(val);
+  renderTags('excludeList', excludes, excludes);
+  input.value = '';
+  updatePreview();
+}
+
+function renderTags(containerId, arr, ref) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = arr.map((v, i) => `
+    <span class="kw-tag">${escH(v)}<button onclick="ref.splice(${i},1);renderTags('${containerId}',ref,ref);updatePreview()">✕</button></span>
+  `).join('');
+  // ref経由でクロージャが壊れるのでevalなし版
+  el.querySelectorAll('button').forEach((btn, i) => {
+    btn.onclick = () => { arr.splice(i, 1); renderTags(containerId, arr, ref); updatePreview(); };
+  });
+}
+
+function updatePreview() {
+  const sites = getSelectedSites();
+  const kws = keywords.length ? `・追加KW: ${keywords.join(', ')}` : '';
+  const exs = excludes.length ? `・除外: ${excludes.join(', ')}` : '';
+  const siteStr = sites.length ? sites.join('、') : '（サイト未選択）';
+  document.getElementById('promptPreview').textContent =
+    `検索先: ${siteStr}${kws}${exs}`;
+}
+
+// Enterキーで追加
+document.getElementById('customSiteInput')?.addEventListener('keydown', e => e.key==='Enter' && addCustomSite());
+document.getElementById('kwInput')?.addEventListener('keydown', e => e.key==='Enter' && addKeyword());
+document.getElementById('exInput')?.addEventListener('keydown', e => e.key==='Enter' && addExclude());
+document.querySelectorAll('#siteList input').forEach(el => el.addEventListener('change', updatePreview));
+
+// ──────────────────────────────────────────────
+// Claude API 呼び出し
+// ──────────────────────────────────────────────
+async function fetchPrices() {
+  const btn = document.getElementById('fetchBtn');
+  const spinner = document.getElementById('spinner');
+  const statusText = document.getElementById('statusText');
+
+  const sites = getSelectedSites();
+  if (sites.length === 0) {
+    statusText.textContent = '⚠ 検索設定で少なくとも1つのサイトを選択してください';
+    return;
+  }
+
+  btn.disabled = true;
+  spinner.classList.add('active');
+  statusText.textContent = `Claude AIがWeb検索中（${sites.join('・')}）…`;
+  document.getElementById('cardsGrid').innerHTML = '';
+
+  const siteStr = sites.join('、');
+  const kwStr = keywords.length ? `\n追加キーワード: ${keywords.join(' ')}` : '';
+  const exStr = excludes.length ? `\n除外キーワード（含むデータは無視）: ${excludes.join('、')}` : '';
+
+  // ── Step1: Web検索でデータ収集 ──
+  const searchPrompt = `Disney Lorcana TCGのエンチャンテッド（Enchanted）レアリティカードの日本市場での現在の相場価格を${siteStr}で調査してください。${kwStr}${exStr}
+できるだけ多くのエンチャンテッドカード（最低15枚）の価格情報を集めてください。`;
+
+  // ── Step2: JSON生成専用システムプロンプト ──
+  const system = 'あなたはDisney Lorcana TCGの価格データを構造化するアシスタントです。' +
+    '与えられた価格情報を元に、必ず以下のJSON配列のみを出力してください。' +
+    '前置き・説明文・マークダウンのコードブロック記号は一切出力しないでください。' +
+    '最初の文字は必ず [ で始め、最後の文字は必ず ] で終わってください。' +
+    '出力フォーマット: [{"name":"英語カード名","subtitle":"英語サブタイトル","set":"TFC|ROF|ITI|URR|SSK|AZU","ink":"Amber|Amethyst|Emerald|Ruby|Sapphire|Steel","price_jpy":数値,"price_min_jpy":数値,"price_max_jpy":数値,"trend":"up|down|flat","price_history":[数値,数値,数値,数値],"image_url":""}]';
+
+  try {
+    // Step1: Web検索付きで価格情報収集
+    statusText.textContent = `🔍 Web検索中（${sites.join('・')}）…`;
+    const res1 = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": "",
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 5000,
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        messages: [{ role: "user", content: searchPrompt }]
+      })
+    });
+
+    if (!res1.ok) {
+      const errData = await res1.json();
+      throw new Error(errData.error?.message || `APIエラー: ${res1.status}`);
+    }
+
+    const data1 = await res1.json();
+
+    // 検索結果テキストを抽出
+    const searchResult = (data1.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join(' ');
+
+    if (!searchResult) throw new Error('検索結果が空でした');
+
+    // Step2: 収集した情報をJSONに変換
+    statusText.textContent = '📊 データを整形中…';
+    const res2 = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": "",
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4000,
+        system: system,
+        messages: [{
+          role: "user",
+          content: `以下の価格調査結果をJSON配列に変換してください。必ず [ で始まり ] で終わるJSONのみ出力してください:
+
+${searchResult}`
+        }]
+      })
+    });
+
+    if (!res2.ok) {
+      const errData = await res2.json();
+      throw new Error(errData.error?.message || `APIエラー: ${res2.status}`);
+    }
+
+    const data2 = await res2.json();
+    let rawText = (data2.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('');
+
+    // JSON抽出（複数パターンに対応）
+    let cards = [];
+    // パターン1: コードブロック内
+    const cbMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (cbMatch) rawText = cbMatch[1].trim();
+    // パターン2: [ ] を探す
+    const arrMatch = rawText.match(/\[[\s\S]*\]/);
+    if (arrMatch) rawText = arrMatch[0];
+
+    try {
+      cards = JSON.parse(rawText.trim());
+    } catch (parseErr) {
+      console.error('Parse error. Raw text:', rawText);
+      throw new Error('JSONの解析に失敗しました。もう一度お試しください。');
+    }
+
+    if (!Array.isArray(cards) || cards.length === 0) {
+      throw new Error('カードデータが取得できませんでした');
+    }
+
+    allCards = cards;
+    statusText.textContent = `✦ ${cards.length}件のエンチャンテッドカードを取得しました（${sites.join('・')} / ${new Date().toLocaleString('ja-JP')}）`;
+    renderCards();
+
+  } catch (err) {
+    console.error(err);
+    statusText.textContent = '⚠ データ取得に失敗しました：' + err.message;
+    document.getElementById('cardsGrid').innerHTML = `<div class="empty-state"><div class="icon">⚠</div><p>データ取得に失敗しました。<br>${err.message}<br><br>APIキーを確認して再度お試しください。</p></div>`;
+  } finally {
+    btn.disabled = false;
+    spinner.classList.remove('active');
+  }
+}
+
+// ──────────────────────────────────────────────
+// フィルター・ソート
+// ──────────────────────────────────────────────
+function getFiltered() {
+  const raw = document.getElementById('searchInput').value.toLowerCase().trim();
+  const setFilter = document.getElementById('setFilter').value;
+  const sortBy = document.getElementById('sortBy').value;
+
+  // スペース区切りでAND検索（例: "エルサ 冬" → 両方含むカードのみ）
+  const tokens = raw ? raw.split(/\s+/).filter(Boolean) : [];
+
+  let cards = allCards.filter(c => {
+    const searchTarget = [
+      c.name || '',
+      c.subtitle || '',
+      c.ink || '',
+      SET_NAMES[c.set] || c.set || ''
+    ].join(' ').toLowerCase();
+
+    const matchQ = tokens.length === 0 || tokens.every(t => searchTarget.includes(t));
+    const matchSet = setFilter === 'all' || c.set === setFilter;
+    return matchQ && matchSet;
+  });
+
+  cards.sort((a, b) => {
+    if (sortBy === 'price_desc') return b.price_jpy - a.price_jpy;
+    if (sortBy === 'price_asc') return a.price_jpy - b.price_jpy;
+    if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
+    if (sortBy === 'set') return (a.set || '').localeCompare(b.set || '');
+    return 0;
+  });
+
+  return cards;
+}
+
+function renderCards() {
+  // 既存チャート破棄
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+
+  const cards = getFiltered();
+  const grid = document.getElementById('cardsGrid');
+
+  if (!cards.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">✦</div><p>該当するカードが見つかりません</p></div>`;
+    renderMovementBanner([]);
+    return;
+  }
+
+  grid.innerHTML = cards.map((c, i) => cardHTML(c, i)).join('');
+
+  // ミニチャート描画
+  cards.forEach((c, i) => {
+    if (c.price_history && c.price_history.length > 1) {
+      drawMiniChart(`mini-chart-${i}`, c.price_history);
+    }
+  });
+
+  // 価格変動バナー
+  renderMovementBanner(allCards);
+}
+
+// ──────────────────────────────────────────────
+// 価格変動バナー
+// ──────────────────────────────────────────────
+function renderMovementBanner(cards) {
+  const movers = cards
+    .filter(c => c.price_history && c.price_history.length >= 2)
+    .map(c => {
+      const hist = c.price_history;
+      const prev = hist[hist.length - 2];
+      const curr = hist[hist.length - 1];
+      if (!prev || !curr || prev === curr) return null;
+      const pct = Math.round((curr - prev) / prev * 100);
+      return { ...c, prev, curr, pct };
+    })
+    .filter(Boolean)
+    .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+
+  const banner = document.getElementById('movementBanner');
+  const track  = document.getElementById('movementTrack');
+
+  if (!movers.length) {
+    banner.classList.remove('visible');
+    return;
+  }
+
+  function itemHTML(c) {
+    const isUp    = c.curr > c.prev;
+    const sign    = isUp ? '+' : '';
+    const pctCls  = isUp ? 'mv-pct-up'  : 'mv-pct-down';
+    const toCls   = isUp ? 'mv-to-up'   : 'mv-to-down';
+    const cardIdx = allCards.findIndex(x => x.name === c.name && x.set === c.set);
+    return `<div class="movement-item" onclick="openModal(${cardIdx})">
+      <span class="mv-name" title="${escH(c.name)}">${escH(c.name)}</span>
+      <span class="mv-from">¥${c.prev.toLocaleString()}</span>
+      <span class="mv-arrow">→</span>
+      <span class="${toCls}">¥${c.curr.toLocaleString()}</span>
+      <span class="mv-pct ${pctCls}">${sign}${c.pct}%</span>
+    </div>`;
+  }
+
+  const html = movers.map(itemHTML).join('');
+  track.innerHTML = html + html; // 無限ループ用に2倍
+  const duration = Math.max(14, movers.length * 4);
+  track.style.animationDuration = duration + 's';
+  banner.classList.add('visible');
+}
+
+function cardHTML(c, i) {
+  const inkClass = INK_COLORS[c.ink] || 'ink-steel';
+  const barColor = INK_BAR_COLORS[c.ink] || '#4a7a8a';
+  const setName = SET_NAMES[c.set] || c.set || '';
+  const trendBadge = c.trend === 'up'
+    ? '<span class="trend-badge trend-up">▲ 上昇</span>'
+    : c.trend === 'down'
+    ? '<span class="trend-badge trend-down">▼ 下降</span>'
+    : '<span class="trend-badge trend-flat">─ 横ばい</span>';
+
+  const _imgSrc = getCardImageUrl(c);
+  const imgHTML = _imgSrc
+    ? `<img src="${_imgSrc}" alt="${escH(c.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    : '';
+  const soldOutCls = c.sold_out ? ' sold-out' : '';
+  const soldOutBadge = c.sold_out ? '<span class="sold-out-badge">売り切れ</span>' : '';
+
+  return `
+  <div class="card-item${soldOutCls}" onclick="openModal(${i})" style="animation-delay:${i * 0.05}s">
+    <div class="card-img-wrap">
+      ${soldOutBadge}
+      ${imgHTML}
+      <div class="card-img-placeholder" ${c.image_url ? 'style="display:none"' : ''}>✦</div>
+    </div>
+    <div class="card-body">
+      <div class="ink-bar" style="background:${barColor}"></div>
+      <div class="card-set-tag">${setName}</div>
+      <div class="card-name">${hlText(escH(c.name))}</div>
+      <div class="card-subtitle">${hlText(escH(c.subtitle || '　'))}</div>
+      ${buildPriceCompare(c)}
+      <div class="card-meta">
+        <span class="chip chip-rarity">✦ Enchanted</span>
+        ${c.ink ? `<span class="chip chip-${inkClass}">${c.ink}</span>` : ''}
+      </div>
+
+    </div>
+  </div>`;
+}
+
+function buildPriceCompare(c) {
+  const lm  = c.price_jpy       || 0;
+  const lh  = c.lorhappy_price_jpy;
+  const cb  = c.carbbit_price_jpy;
+
+  function valCell(price, sold_out, basePrice) {
+    if (price == null) return '<span class="pc-val soldout">—</span>';
+    if (sold_out)      return '<span class="pc-val soldout">売り切れ</span>';
+    const cls = (basePrice && price < basePrice) ? 'cheaper' : '';
+    return `<span class="pc-val ${cls}">¥${price.toLocaleString()}</span>`;
+  }
+
+  function diffCell(price, sold_out, basePrice) {
+    if (price == null || sold_out || !basePrice) return '<span class="pc-diff">—</span>';
+    const diff = price - basePrice;
+    const sign = diff > 0 ? '+' : '';
+    const cls  = diff < 0 ? 'cheaper' : (diff > 0 ? 'pricier' : '');
+    return `<span class="pc-diff ${cls}">${sign}¥${Math.abs(diff).toLocaleString()}</span>`;
+  }
+
+  const lmVal = c.sold_out
+    ? '<span class="pc-val soldout">売り切れ</span>'
+    : `<span class="pc-val">¥${lm.toLocaleString()}</span>`;
+
+  const trendBadge = c.trend === 'up'
+    ? '<span class="trend-badge trend-up">▲ 上昇</span>'
+    : c.trend === 'down'
+    ? '<span class="trend-badge trend-down">▼ 下降</span>'
+    : '<span class="trend-badge trend-flat">─ 横ばい</span>';
+
+  // 商品ページリンクボタン
+  function linkBtn(url, label, soldOut) {
+    if (!url) return `<span class="pc-link-none">—</span>`;
+    const cls = soldOut ? 'pc-link-btn sold' : 'pc-link-btn';
+    return `<a href="${url}" target="_blank" class="${cls}" onclick="event.stopPropagation()">${label}</a>`;
+  }
+
+  return `<div class="price-compare" style="grid-template-columns:60px 1fr 1fr 1fr">
+    <span class="pc-label"></span>
+    <span class="pc-site">ロアマスター</span>
+    <span class="pc-site">ロルハッピー</span>
+    <span class="pc-site">カービット</span>
+    <span class="pc-label">価格</span>
+    ${lmVal}
+    ${valCell(lh, c.lorhappy_sold_out, lm)}
+    ${valCell(cb, c.carbbit_sold_out,  lm)}
+    <span class="pc-label">差額</span>
+    <span></span>
+    ${diffCell(lh, c.lorhappy_sold_out, lm)}
+    ${diffCell(cb, c.carbbit_sold_out,  lm)}
+    <span class="pc-label">購入</span>
+    ${linkBtn(c.loremaster_url, '購入', c.sold_out)}
+    ${linkBtn(c.lorhappy_url,   '購入', c.lorhappy_sold_out)}
+    ${linkBtn(c.carbbit_url,    '購入', c.carbbit_sold_out)}
+  </div>
+  <div style="margin-bottom:4px">${trendBadge}</div>`;
+}
+
+function escH(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function hlText(html) {
+  const raw = document.getElementById('searchInput').value.trim();
+  if (!raw) return html;
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  let result = html;
+  tokens.forEach(t => {
+    const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp('(' + escaped + ')', 'gi'), '<span class="hl">$1</span>');
+  });
+  return result;
+}
+
+// ──────────────────────────────────────────────
+// ミニチャート
+// ──────────────────────────────────────────────
+function drawMiniChart(canvasId, history) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const labels = ['3ヶ月前','2ヶ月前','1ヶ月前','現在'].slice(-history.length);
+  const isUp = history[history.length-1] >= history[0];
+  const color = isUp ? '#5dc98a' : '#e07070';
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: history,
+        borderColor: color,
+        backgroundColor: color + '22',
+        borderWidth: 1.5,
+        pointRadius: 2,
+        tension: 0.4,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => '¥' + ctx.raw.toLocaleString() }
+      }},
+      scales: {
+        x: { display: false },
+        y: { display: false }
+      },
+      animation: { duration: 600 }
+    }
+  });
+}
+
+// ──────────────────────────────────────────────
+// モーダル
+// ──────────────────────────────────────────────
+function openModal(i) {
+  const cards = getFiltered();
+  const c = cards[i];
+  if (!c) return;
+
+  const setName = SET_NAMES[c.set] || c.set || '';
+  const inkClass = INK_COLORS[c.ink] || 'ink-steel';
+  const barColor = INK_BAR_COLORS[c.ink] || '#4a7a8a';
+
+  let chartHTML = '';
+  let priceBoxes = `
+    <div class="modal-price-box">
+      <div class="label">現在相場</div>
+      <div class="val">¥${(c.price_jpy||0).toLocaleString()}</div>
+    </div>
+    <div class="modal-price-box">
+      <div class="label">最低価格</div>
+      <div class="val">¥${(c.price_min_jpy||0).toLocaleString()}</div>
+    </div>
+    <div class="modal-price-box">
+      <div class="label">最高価格</div>
+      <div class="val">¥${(c.price_max_jpy||0).toLocaleString()}</div>
+    </div>
+  `;
+
+  if (c.price_history && c.price_history.length > 1) {
+    chartHTML = `<canvas id="modal-chart" class="modal-chart"></canvas>`;
+  }
+
+  const _modalImgSrc = getCardImageUrl(c);
+  const modalImgHTML = _modalImgSrc
+    ? `<img src="${_modalImgSrc}" alt="${escH(c.name)}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px;" onerror="this.parentElement.style.display='none'">`
+    : '';
+
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;gap:20px;margin-bottom:20px;align-items:flex-start">
+      ${_modalImgSrc ? `<div style="width:110px;height:154px;flex-shrink:0;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--ink-soft)">${modalImgHTML}</div>` : ''}
+      <div style="flex:1;min-width:0">
+        <div style="border-left:3px solid ${barColor}; padding-left:14px; margin-bottom:12px;">
+          <div style="font-size:11px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">${setName}</div>
+          <div class="modal-name">${escH(c.name)}</div>
+          ${c.subtitle ? `<div style="font-style:italic;color:var(--text-muted);font-size:14px">${escH(c.subtitle)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span class="chip chip-rarity">✦ Enchanted</span>
+          ${c.ink ? `<span class="chip chip-${inkClass}">${c.ink}</span>` : ''}
+        </div>
+      </div>
+    </div>
+    ${chartHTML}
+    <div class="modal-prices">${priceBoxes}</div>
+    <p class="source-note">※ ロアマスター・ロルハッピー・カービットの販売価格を比較表示しています。最新価格は「↻ 相場を更新」からご確認ください。</p>
+  `;
+
+  document.getElementById('modalOverlay').classList.add('open');
+
+  // モーダルチャート
+  if (c.price_history && c.price_history.length > 1) {
+    setTimeout(() => {
+      const canvas = document.getElementById('modal-chart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const labels = ['3ヶ月前','2ヶ月前','1ヶ月前','現在'].slice(-c.price_history.length);
+      const isUp = c.price_history[c.price_history.length-1] >= c.price_history[0];
+      const color = isUp ? '#5dc98a' : '#e07070';
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: '価格推移',
+            data: c.price_history,
+            borderColor: color,
+            backgroundColor: color + '22',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: color,
+            tension: 0.4,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => '¥' + c.raw.toLocaleString() } }
+          },
+          scales: {
+            x: { ticks: { color: '#a09070', font: { size: 11 } }, grid: { color: 'rgba(201,168,76,0.08)' } },
+            y: { ticks: { color: '#a09070', font: { size: 11 }, callback: v => '¥' + v.toLocaleString() }, grid: { color: 'rgba(201,168,76,0.08)' } }
+          }
+        }
+      });
+    }, 50);
+  }
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+}
+
+// ──────────────────────────────────────────────
+// 初期データ（秋葉原メルカード買取価格 2026/3/16更新）
+// ──────────────────────────────────────────────
+const INITIAL_DATA = [];
+
+// ──────────────────────────────────────────────
+// 更新モーダル関数
+// ──────────────────────────────────────────────
+
+// ──────────────────────────────────────────────
+// 価格CSV エクスポート / インポート
+// ──────────────────────────────────────────────
+function priceExportCSV() {
+  const rows = ['カード名,サブタイトル,ロアマスター価格,ロアマスターURL,ロルハッピー価格,ロルハッピーURL,カービット価格,カービットURL'];
+  allCards.forEach(c => {
+    rows.push([
+      `"${(c.name||'').replace(/"/g,'""')}"`,
+      `"${(c.subtitle||'').replace(/"/g,'""')}"`,
+      c.price_jpy || 0,
+      `"${c.loremaster_url||''}"`,
+      c.lorhappy_price_jpy || '',
+      `"${c.lorhappy_url||''}"`,
+      c.carbbit_price_jpy || '',
+      `"${c.carbbit_url||''}"`
+    ].join(','));
+  });
+  const csv = rows.join('\n');
+  const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'lorcana_prices.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function priceImportCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result.replace(/^﻿/, '');
+    const lines = text.split(/\r?\n/).filter(l => l.trim() && !l.startsWith('カード名'));
+    let updated = 0;
+
+    lines.forEach(line => {
+      const cols = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') { inQ = !inQ; continue; }
+        if (line[i] === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
+        cur += line[i];
+      }
+      cols.push(cur.trim());
+
+      const [name, subtitle, lmPrice, lmUrl, lhPrice, lhUrl, cbPrice, cbUrl] = cols;
+      if (!name) return;
+
+      const card = allCards.find(c =>
+        c.name === name && (c.subtitle || '') === (subtitle || '')
+      );
+      if (card) {
+        if (lmPrice) card.price_jpy = parseInt(lmPrice) || 0;
+        if (lmUrl)   card.loremaster_url = lmUrl;
+        if (lhPrice) card.lorhappy_price_jpy = parseInt(lhPrice) || null;
+        if (lhUrl)   card.lorhappy_url = lhUrl;
+        if (cbPrice) card.carbbit_price_jpy = parseInt(cbPrice) || null;
+        if (cbUrl)   card.carbbit_url = cbUrl;
+        updated++;
+      }
+    });
+
+    saveToStorage(allCards);
+    renderCards();
+
+    const st = document.getElementById('priceStatus');
+    st.textContent = '✦ ' + updated + '件の価格を更新しました';
+    st.className = 'gist-status ok';
+    setTimeout(() => st.className = 'gist-status', 3000);
+  };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+function askClaude() {
+  var cardList = 'エルサ 冬の精霊、ミッキーマウス 気ままな魔法使い、ジーニー 出動中、ミッキーマウス 策士の無法者、アラジン 英雄の無法者、マウイ 英雄の中の英雄、オーロラ 夢みる守護者、ベル 不思議で特別な、シンバ 帰還した王、ティンカー・ベル 巨大な妖精、ハデス オリンポスの王、スティッチ お気楽サーファー、シンデレラ 舞踏会の花形、ラプンツェル 煌めく光の中で、ベル 準備万端の冒険家、ガストン 絶対的英雄、ミッキーマウス 真の友、ミニーマウス 水面下の工作員、モアナ 海の旅人、プリンス・エリック 冒険好きな王子、フリン・ライダー 抜け目のない詐欺師、ヴァネロペ・フォン・シュウィーツ スーパーカーの改良者、クルーエラ・ドヴィル 究極の悪女、ドナルドダック 怒り炸裂、シンデレラ 剛胆なる姫君、ピーター・パン 海賊の天敵、フック船長 達人の剣士、アリエル 音響の戦士、ディアブロ 忠実なる使い魔、ムーサ 海の司令官、クズコ 変身の呪い、シンバ 気高き群れの守護者、タモア ゴージャス！、ロビン・フッド シャーウッドの英雄、魔法使いの帽子 魔法の象徴、ベルの家 モーリスの工房、クズコの宮殿 山頂の宮殿、プライドランド 夜の草原、フック船長の船 ジョリー・ロジャー号、フォートアガバー 古代の要塞、白い土地 氷の荒野、ドーン・オブ・ザ・サン 夜明けの光、All Is Found 魔法の川の子守唄、タモア ゴージャス！、ジャスミン 砂漠の戦士、アリエル 音響の戦士、ハデス 策略家、クルーエラ 悪の天才、ディアブロ 忠実なる使い魔、マレフィセント 邪悪な魔女、アースラ 海の魔女、アリス 好奇心旺盛な子、クロス 船長の書記、スクラッチ 一番の取り巻き、ジーニー 最後の望み、ガストン 首席の手下、フリン・ライダー 王の衛兵、レティア ホーンテッドマンション、ムシュー 不名誉な守護者、胡散臭い商人 カーペットの販売員、INTO THE UNKNOWN イントゥ・ジ・アンノウン、ヴァネロペ・フォン・シュウィーツ シュガー・ラッシュの王女様、クララベル 軽やかなひづめの持ち主、ムファサ プライドロックの統治者、ペガサス 翼のある馬、ルミエール 心を込めたおもてなし、ミゲル 音楽家の夢、マリア ドレスデザイナー、バーナード 救助隊員、ビアンカ 勇敢な救助隊員、パッチ 101番目の子犬、シンバ 若き王者、ゼウス 雷神、メリダ 弓の達人、ラプンツェル いと高き姫君、レミー グルメなネズミ、ルイス 発明家の少年、レイ ホタルの案内人、ヒロ・ハマダ 天才少年、ベイマックス ヘルスケアコンパニオン、チップ 救助隊のリーダー、デール 救助隊員、くまのプーさん はちみつの魔法使い、ダンボ 世界の七不思議、アリエル 冒険好きな収集家、ミッキーマウス マジシャン見習い、ミニーマウス 優しい友達、ペニー 孤児院の少女、ミス・ビアンカ 慈悲深い救助隊員、バーナード ためらいがちな英雄、ジョン・シルバー 宇宙の海賊、ジム・ホーキンス 宇宙の冒険者、イズマ 狡猾な化学者、クロンク 充実した副官、メイル ドラゴンの使者、花木蘭 不屈の勇者、ミッキーマウス ブレイブ・リトル・プリンス、ミニーマウス スイート・ハート・プリンセス、ポンゴ 決意の父犬、ベル 熟練なるミスティーク、アリエル 冒険好きな収集家、くまのプーさん はちみつの魔法使い、ダンボ 世界の七不思議、マックス・グーフ チャート・トッパー、ジャスミン ぬかりなき戦略家、レディ 凛々しいお嬢さん、ラプンツェル いと高き姫君、クルーエラ・ドヴィル ファッションの申し子、I2I アイ・トゥー・アイ、INTO THE UNKNOWN イントゥ・ジ・アンノウン、マレフィセント 闇の守護者、スクランプ 縫いぐるみのお友達、ガストン 絶対的英雄、ヘラクレス 真の英雄、スノーホワイト いやしの賜物、ジュディ・ホップス 警官への夢、ニック・ワイルド 狡猾な詐欺師、ベル 知識の探求者、シンデレラ ガラスの靴の持ち主、ラプンツェル 好奇心旺盛な芸術家、エルサ 魔法の力の解放、マレフィセント 伝説の悪女、スリック ズートピアの詐欺師、ミス・フォックス 陰謀家、ビッグ 秘密のボス、フランク 囮作戦の専門家、クライド 悪の仲間、ダグ スコーリーの犬、ゴースト・オブ・クリスマス・パスト 幽霊の訪問者、スクルージ・マクダック 過去を知る者、ティニー 小さな芸人、ジーニー 願いを叶える者';
+  var q = 'ディズニーロルカナのエンチャンテッドカードについて、以下の全カードのロアマスター(loremaster.ocnk.net)販売価格とメルカリ現在出品中の最安値を調べて、JSON配列のみ返してください（説明文不要・売り切れ含む）。\n\nカード一覧: ' + cardList + '\n\n形式: [{"name":"カード名","subtitle":"サブタイトル","set":"TFC/ROF/ITI/URR/SSK/AZU/FAB/WIW","ink":"Amber/Amethyst/Emerald/Ruby/Sapphire/Steel","price_jpy":ロアマスター価格,"sold_out":true/false,"lorhappy_price_jpy":ロルハッピー価格,"lorhappy_sold_out":true/false,"carbbit_price_jpy":カービット価格,"carbbit_sold_out":true/false,"trend":"up/down/flat","price_history":[3ヶ月前,2ヶ月前,1ヶ月前,現在],"image_url":""}]';
+  window.open('https://claude.ai/new?q=' + encodeURIComponent(q), '_blank');
+}
+
+// ──────────────────────────────────────────────
+// jsonbin.io 同期
+// ──────────────────────────────────────────────
+function getGistConfig() {
+  return {
+    id:    localStorage.getItem('gist_id')    || '',
+    token: localStorage.getItem('gist_token') || ''
+  };
+}
+
+function saveGistConfig() {
+  // モーダル内のinputがあれば取得、なければlocalStorageから
+  const idEl    = document.getElementById('gistId');
+  const tokenEl = document.getElementById('gistToken');
+  const id    = idEl    ? idEl.value.trim()    : (localStorage.getItem('gist_id')    || '');
+  const token = tokenEl ? tokenEl.value.trim() : (localStorage.getItem('gist_token') || '');
+  if (id)    localStorage.setItem('gist_id', id);
+  if (token) localStorage.setItem('gist_token', token);
+  return { id, token };
+}
+
+function setGistStatus(msg, type) {
+  const el = document.getElementById('gistStatus');
+  el.textContent = msg;
+  el.className = 'gist-status ' + type;
+}
+
+function openUpdateModal() {
+  document.getElementById('updateOverlay').classList.add('open');
+  document.getElementById('jsonPasteArea').value = '';
+  const cfg = getGistConfig();
+  const idEl    = document.getElementById('gistId');
+  const tokenEl = document.getElementById('gistToken');
+  if (idEl    && cfg.id)    idEl.value    = cfg.id;
+  if (tokenEl && cfg.token) tokenEl.value = cfg.token;
+  const statusEl = document.getElementById('gistStatus');
+  if (statusEl) statusEl.className = 'gist-status';
+}
+
+async function fetchBinData(binId) {
+  const res = await fetch('https://api.jsonbin.io/v3/b/' + binId + '/latest', {
+    headers: { 'X-Access-Key': '' }
+  });
+  if (!res.ok) throw new Error('Bin取得失敗: HTTP ' + res.status);
+  const data = await res.json();
+  const cards = data.record;
+  if (!Array.isArray(cards) || !cards.length) throw new Error('データが空です');
+  return cards;
+}
+
+async function gistLoad() {
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycby6E6lv-hKDcPcNl-fAsRz-lE9Rov_EyA0-pl9y1aa1alSN-aGw17Nnn8kiVJVEvfOHGg/exec';
+  setGistStatus('読み込み中…', 'loading');
+  try {
+    const res = await fetch(GAS_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const cards = await res.json();
+    if (!Array.isArray(cards) || !cards.length) throw new Error('データが空です（GASをまず実行してください）');
+    allCards = cards;
+    saveToStorage(cards);
+    document.getElementById('statusText').textContent =
+      '✦ ' + cards.length + '件を読み込みました（' + new Date().toLocaleString('ja-JP') + '）';
+    renderCards();
+    setGistStatus('✦ ' + cards.length + '件を読み込みました', 'ok');
+    document.getElementById('updateOverlay').classList.remove('open');
+  } catch(e) {
+    setGistStatus('エラー: ' + e.message, 'err');
+  }
+}
+
+async function gistSave() {
+  const cfg = saveGistConfig();
+  if (!cfg.id)    { setGistStatus('Bin IDを入力してください', 'err'); return; }
+  if (!cfg.token) { setGistStatus('API Keyを入力してください（保存に必要）', 'err'); return; }
+  if (!allCards.length) { setGistStatus('保存するデータがありません', 'err'); return; }
+  setGistStatus('保存中…', 'loading');
+  try {
+    const res = await fetch('https://api.jsonbin.io/v3/b/' + cfg.id, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': cfg.token
+      },
+      body: JSON.stringify(allCards)
+    });
+    if (!res.ok) throw new Error('保存失敗: HTTP ' + res.status);
+    setGistStatus('✦ クラウドに保存しました', 'ok');
+  } catch(e) {
+    setGistStatus('エラー: ' + e.message, 'err');
+  }
+}
+
+// ──────────────────────────────────────────────
+// ローカルストレージ
+// ──────────────────────────────────────────────
+function saveToStorage(cards) {
+  try {
+    localStorage.setItem('lorcana_cards', JSON.stringify(cards));
+    localStorage.setItem('lorcana_saved_at', new Date().toISOString());
+  } catch(e) { console.warn('保存失敗:', e); }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem('lorcana_cards');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function applyPastedData() {
+  const raw = document.getElementById('jsonPasteArea').value.trim();
+  if (!raw) { alert('JSONを貼り付けてください'); return; }
+  try {
+    let text = raw;
+    const cbMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (cbMatch) text = cbMatch[1].trim();
+    const arrMatch = text.match(/\[[\s\S]*\]/);
+    if (arrMatch) text = arrMatch[0];
+    const cards = JSON.parse(text);
+    if (!Array.isArray(cards) || !cards.length) throw new Error('空のデータです');
+    allCards = cards;
+    saveToStorage(cards);
+    const savedAt = new Date().toLocaleString('ja-JP');
+    document.getElementById('statusText').textContent =
+      '✦ ' + cards.length + '件のデータを反映・保存しました（' + savedAt + '）';
+    renderCards();
+    document.getElementById('updateOverlay').classList.remove('open');
+  } catch(e) {
+    alert('JSONの解析に失敗しました: ' + e.message + '\n\nClaudeから返ってきたテキストをそのまま貼り付けてください。');
+  }
+}
+
+// ──────────────────────────────────────────────
+// APIキー管理
+// ──────────────────────────────────────────────
+// ビュー切り替え（リスト / ギャラリー）
+// ──────────────────────────────────────────────
+let currentView = 'list';
+
+function setView(mode) {
+  currentView = mode;
+  const grid = document.getElementById('cardsGrid');
+  document.getElementById('viewList').classList.toggle('active', mode === 'list');
+  document.getElementById('viewGallery').classList.toggle('active', mode === 'gallery');
+  if (mode === 'gallery') {
+    grid.classList.add('gallery-mode');
+  } else {
+    grid.classList.remove('gallery-mode');
+  }
+}
+
+
+// ──────────────────────────────────────────────
+// 起動時にキーチェック
+// 起動時に初期データをロード
+(async function initData() {
+  // 全データクリア（テスト用）
+  localStorage.removeItem('lorcana_cards');
+  localStorage.removeItem('lorcana_saved_at');
+  localStorage.removeItem('lorcana_image_map');
+
+  allCards = [];
+  imageMap = {};
+
+  document.getElementById('statusText').textContent = '✦ データなし — CSVからカードを読み込んでください';
+  setView('gallery');
+  renderCards();
+})();
+
+// ──────────────────────────────────────────────
+// カード管理
+// ──────────────────────────────────────────────
+// 画像マッピング: { "エルサ冬の精霊": "エルサ冬の精霊.jpg", ... }
+let imageMap = JSON.parse(localStorage.getItem('lorcana_image_map') || '{}');
+
+function saveImageMap() {
+  localStorage.setItem('lorcana_image_map', JSON.stringify(imageMap));
+}
+
+function getImageKey(name, subtitle) {
+  return (name + (subtitle || '')).replace(/[\s　]/g, '');
+}
+
+function getCardImageUrl(card) {
+  // 1. 直接のimage_urlがあればそちら優先
+  if (card.image_url && !card.image_url.startsWith('data:')) return card.image_url;
+  // 2. imageMapから取得
+  const key = getImageKey(card.name, card.subtitle);
+  const filename = imageMap[key];
+  if (filename) return filename; // 相対パス or base64
+  // 3. base64がimage_urlに入っている場合
+  if (card.image_url && card.image_url.startsWith('data:')) return card.image_url;
+  return '';
+}
+
+function openCardManager() {
+  renderCmList();
+  document.getElementById('cmProgress').classList.remove('active');
+  document.getElementById('cmProgress').innerHTML = '';
+  document.getElementById('cmOverlay').classList.add('open');
+}
+
+function renderCmList() {
+  const list = document.getElementById('cmCardList');
+  if (!allCards.length) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic">カードがありません</div>';
+    return;
+  }
+  list.innerHTML = allCards.map((c, i) => {
+    const imgUrl = getCardImageUrl(c);
+    const imgTag = imgUrl ? `<img src="${imgUrl}" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'">` : '';
+    const price = c.price_jpy ? '¥' + c.price_jpy.toLocaleString() : '—';
+    const key = getImageKey(c.name, c.subtitle);
+    const hasImg = !!imgUrl;
+    return `<div class="cm-item" id="cm-item-${i}">
+      <div class="cm-item-img" onclick="document.getElementById('cm-upload-${i}').click()" title="クリックで画像をアップロード" style="cursor:pointer">
+        ${imgTag}
+        <div class="cm-item-placeholder" ${hasImg ? 'style="display:none"' : ''}>📷</div>
+        <input type="file" id="cm-upload-${i}" accept="image/*" style="display:none" onchange="cmUploadImage(event,${i})">
+      </div>
+      <div class="cm-item-info">
+        <div class="cm-item-name">${escH(c.name)}</div>
+        <div class="cm-item-sub">${escH(c.subtitle || '　')}</div>
+        <div style="font-size:10px;color:${hasImg ? '#5dc98a' : 'var(--text-muted)'}">
+          ${hasImg ? '✦ 画像あり' : '画像なし'}
+        </div>
+      </div>
+      <span class="cm-item-price">${price}</span>
+      <button class="cm-item-del" onclick="cmDeleteCard(${i})" title="削除">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function cmAddCard() {
+  const input = document.getElementById('cmNameInput');
+  const val = input.value.trim();
+  if (!val) return;
+  const parts = val.split(/[\s　]+/);
+  const name = parts[0];
+  const subtitle = parts.slice(1).join(' ');
+  if (allCards.some(c => c.name === name && c.subtitle === subtitle)) {
+    alert('すでに登録されています');
+    return;
+  }
+  allCards.push({
+    name, subtitle, set: '', ink: '',
+    price_jpy: 0, price_min_jpy: 0, price_max_jpy: 0,
+    sold_out: false,
+    lorhappy_price_jpy: null, lorhappy_sold_out: false,
+    carbbit_price_jpy: null, carbbit_sold_out: false,
+    trend: 'flat', price_history: [0,0,0,0], image_url: ''
+  });
+  saveToStorage(allCards);
+  renderCmList();
+  renderCards();
+  input.value = '';
+}
+
+function cmDeleteCard(i) {
+  if (!confirm(`「${allCards[i].name}」を削除しますか？`)) return;
+  // imageMapからも削除
+  const key = getImageKey(allCards[i].name, allCards[i].subtitle);
+  delete imageMap[key];
+  saveImageMap();
+  allCards.splice(i, 1);
+  saveToStorage(allCards);
+  renderCmList();
+  renderCards();
+}
+
+function cmUploadImage(event, i) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const key = getImageKey(allCards[i].name, allCards[i].subtitle);
+    imageMap[key] = e.target.result; // Base64で保存
+    saveImageMap();
+    renderCmList();
+    renderCards();
+    const prog = document.getElementById('cmProgress');
+    prog.classList.add('active');
+    prog.innerHTML = `<span style="color:#5dc98a">✦ 「${escH(allCards[i]?.name || '')}」の画像を設定しました</span>`;
+    setTimeout(() => prog.classList.remove('active'), 2000);
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('cmNameInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') cmAddCard();
+});
+
+// ── CSV エクスポート ──
+function cmExportCSV() {
+  const rows = ['カード名,サブタイトル,セット名,カード画像'];
+  allCards.forEach(c => {
+    const key = getImageKey(c.name, c.subtitle);
+    const imgFile = imageMap[key]
+      ? (imageMap[key].startsWith('data:') ? key + '.jpg' : imageMap[key])
+      : '';
+    rows.push([
+      `"${(c.name||'').replace(/"/g,'""')}"`,
+      `"${(c.subtitle||'').replace(/"/g,'""')}"`,
+      `"${(c.set||'').replace(/"/g,'""')}"`,
+      `"${imgFile.replace(/"/g,'""')}"`
+    ].join(','));
+  });
+  const csv = rows.join('\n');
+  const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'lorcana_cards.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── CSV インポート ──
+function cmImportCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result.replace(/^\uFEFF/, ''); // BOM除去
+    const lines = text.split(/\r?\n/).filter(l => l.trim() && !l.startsWith('カード名'));
+    let added = 0, linked = 0;
+
+    lines.forEach(line => {
+      // CSVパース（ダブルクォート対応）
+      const cols = line.match(/(".*?"|[^,]+)(?:,|$)/g)?.map(v => v.replace(/^"|"$|,$/g, '').trim()) || [];
+      const [name, subtitle, imgFile] = cols;
+      if (!name) return;
+
+      // カードがなければ追加
+      const exists = allCards.find(c => c.name === name && (c.subtitle || '') === (subtitle || ''));
+      if (!exists) {
+        allCards.push({
+          name, subtitle: subtitle || '', set: '', ink: '',
+          price_jpy: 0, price_min_jpy: 0, price_max_jpy: 0,
+          sold_out: false,
+          lorhappy_price_jpy: null, lorhappy_sold_out: false,
+          carbbit_price_jpy: null, carbbit_sold_out: false,
+          trend: 'flat', price_history: [0,0,0,0], image_url: ''
+        });
+        added++;
+      }
+
+      // 画像ファイル名をimageMapに登録
+      if (imgFile) {
+        const key = getImageKey(name, subtitle);
+        imageMap[key] = imgFile; // ファイル名として保存
+        linked++;
+      }
+    });
+
+    saveToStorage(allCards);
+    saveImageMap();
+    renderCmList();
+    renderCards();
+
+    const prog = document.getElementById('cmProgress');
+    prog.classList.add('active');
+    prog.innerHTML = `<span style="color:#5dc98a">✦ ${added}件追加・${linked}件の画像リンクを設定しました</span>`;
+    setTimeout(() => prog.classList.remove('active'), 3000);
+  };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+// ── cardHTMLでgetCardImageUrlを使うよう上書き ──
+// （既存のcardHTML内のimage_url参照をgetCardImageUrlに変更）
+
+// ──────────────────────────────────────────────
+// Lorcast APIで画像を自動取得
+// ──────────────────────────────────────────────
+async function fetchMissingImages() {
+  const missing = allCards.filter(c => !c.image_url);
+  if (!missing.length) return;
+
+  let updated = false;
+  for (const card of missing) {
+    try {
+      // カード名（英語）で検索 — nameが日本語の場合はsubtitleも使う
+      const q = encodeURIComponent(card.name + (card.subtitle ? ' ' + card.subtitle : ''));
+      const res = await fetch('https://api.lorcast.com/v0/cards/search?q=' + q + '&rarity=enchanted');
+      if (!res.ok) continue;
+      const data = await res.json();
+      const match = (data.results || []).find(r =>
+        r.rarity === 'Enchanted' &&
+        (r.name.toLowerCase().includes(card.name.toLowerCase()) ||
+         card.name.toLowerCase().includes(r.name.toLowerCase()))
+      );
+      if (match?.image_uris?.digital?.normal) {
+        card.image_url = match.image_uris.digital.normal;
+        updated = true;
+      }
+    } catch(e) { /* スキップ */ }
+    await new Promise(r => setTimeout(r, 200)); // レート制限対策
+  }
+
+  if (updated) {
+    saveToStorage(allCards);
+    renderCards(); // 画像付きで再描画
+  }
+}
+
+// ──────────────────────────────────────────────
+// 画像付き検索ドロップダウン
+// ──────────────────────────────────────────────
+let ddActiveIdx = -1;
+
+function openDropdown(items) {
+  const dd = document.getElementById('searchDropdown');
+  const SET_NAMES_DD = { TFC:'The First Chapter', ROF:'Rise of the Floodborn', ITI:'Into the Inklands', URR:"Ursula's Return", SSK:'Shimmering Skies', AZU:'Azurite Sea' };
+
+  if (!items.length) {
+    dd.innerHTML = '<div class="sdrop-empty">該当するカードがありません</div>';
+    dd.classList.add('open');
+    return;
+  }
+
+  dd.innerHTML = items.map((c, i) => {
+    const cardIdx = allCards.findIndex(x => x.name === c.name && x.set === c.set);
+    const imgTag = c.image_url
+      ? `<img src="${c.image_url}" alt="${c.name.replace(/"/g,'')}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
+      : '';
+    return `<div class="sdrop-item" data-idx="${cardIdx}" onmousedown="selectDropdown(${cardIdx})">
+      <div class="sdrop-img-wrap">
+        ${imgTag}
+        <div class="sdrop-img-placeholder" ${c.image_url ? 'style="display:none"' : ''}>✦</div>
+      </div>
+      <div class="sdrop-info">
+        <div class="sdrop-name">${c.name.replace(/</g,'&lt;')}</div>
+        ${c.subtitle ? `<div class="sdrop-sub">${c.subtitle.replace(/</g,'&lt;')}</div>` : ''}
+        <div class="sdrop-price">¥${(c.price_jpy||0).toLocaleString()}</div>
+        <div class="sdrop-set">${SET_NAMES_DD[c.set] || c.set || ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  ddActiveIdx = -1;
+  dd.classList.add('open');
+}
+
+function closeDropdown() {
+  document.getElementById('searchDropdown').classList.remove('open');
+  ddActiveIdx = -1;
+}
+
+function selectDropdown(cardIdx) {
+  closeDropdown();
+  openModal(cardIdx);
+}
+
+// ──────────────────────────────────────────────
+// イベント
+// ──────────────────────────────────────────────
+function doSearch() {
+  renderCards();
+  closeDropdown();
+  document.getElementById('searchInput').focus();
+}
+
+const searchInput = document.getElementById('searchInput');
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  renderCards();
+
+  if (!q) { closeDropdown(); return; }
+
+  const matches = allCards
+    .filter(c =>
+      (c.name||'').toLowerCase().includes(q) ||
+      (c.subtitle||'').toLowerCase().includes(q) ||
+      (c.ink||'').toLowerCase().includes(q) ||
+      (SET_NAMES[c.set]||'').toLowerCase().includes(q)
+    )
+    .slice(0, 8);
+  openDropdown(matches);
+});
+
+searchInput.addEventListener('focus', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q && allCards.length) {
+    const matches = allCards.filter(c => c.name.toLowerCase().includes(q) || (c.subtitle||'').toLowerCase().includes(q)).slice(0, 8);
+    openDropdown(matches);
+  }
+});
+
+searchInput.addEventListener('blur', () => {
+  setTimeout(closeDropdown, 150);
+});
+
+// キーボードナビゲーション
+searchInput.addEventListener('keydown', e => {
+  const dd = document.getElementById('searchDropdown');
+  const items = dd.querySelectorAll('.sdrop-item');
+  if (!dd.classList.contains('open') || !items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    ddActiveIdx = Math.min(ddActiveIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    ddActiveIdx = Math.max(ddActiveIdx - 1, -1);
+  } else if (e.key === 'Enter' && ddActiveIdx >= 0) {
+    e.preventDefault();
+    items[ddActiveIdx].dispatchEvent(new MouseEvent('mousedown'));
+    return;
+  } else if (e.key === 'Escape') {
+    closeDropdown();
+    return;
+  }
+
+  items.forEach((el, i) => el.classList.toggle('active', i === ddActiveIdx));
+  if (ddActiveIdx >= 0) items[ddActiveIdx].scrollIntoView({ block: 'nearest' });
+});
+
+document.getElementById('setFilter').addEventListener('change', () => { if (allCards.length) renderCards(); });
+document.getElementById('sortBy').addEventListener('change', () => { if (allCards.length) renderCards(); });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('modalOverlay').classList.remove('open');
+});
+
+// ドロップダウン外クリックで閉じる
+document.addEventListener('click', e => {
+  if (!document.getElementById('searchWrap').contains(e.target)) closeDropdown();
+});
+</script>
+</body>
+</html>
